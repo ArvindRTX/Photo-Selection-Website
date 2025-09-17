@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signature Photography - Photo Selection</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="bg-pattern"></div>
+    
+    <div class="container">
+        <header>
+            <div class="header-content">
+                
+                <h1>Signature Photography - Photo Selection</h1>
+            </div>
+            <p>Welcome! Click the checkmark to select a photo, or click the image itself to open a larger preview.</p>
+        </header>
+
+        <div id="debug-info" class="debug-info">
+            <h3>Debug Information:</h3>
+            <p id="server-status">Server Status: Checking...</p>
+            <p id="photo-count">Photos Found: Loading...</p>
+            <p id="error-log">Errors: None</p>
+        </div>
+
+        <main>
+            <div id="photo-gallery" class="gallery-grid">
+                </div>
+        </main>
+    </div>
+
+    <div id="submission-modal" class="modal-overlay">
+        <div class="submission-section modal-content">
+            <button id="close-modal-btn" class="close-modal-btn" aria-label="Close">&times;</button>
+            <form id="selection-form">
+                <h2>Your Selections</h2>
+                <p class="selection-counter">You have selected <span id="selection-count-modal">0</span> photos.</p>
+                
+                <div class="form-group">
+                    <label for="client-name">Your Name:</label>
+                    <input type="text" id="client-name" name="clientName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="client-email">Your Email:</label>
+                    <input type="email" id="client-email" name="clientEmail" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="client-phone">Your Phone Number:</label>
+                    <input type="tel" id="client-phone" name="clientPhone" required>
+                </div>
+                
+                <button type="submit" class="submit-btn">Submit Selections</button>
+                <button type="button" id="clear-selection-btn" class="clear-btn">Clear Selection</button>
+            </form>
+            
+            <div id="success-message" style="display:none;">
+                <div class="success-icon-wrapper">
+                    <svg class="success-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                        <circle class="success-icon-circle" cx="26" cy="26" r="25" fill="none"/>
+                        <path class="success-icon-checkmark" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                    </svg>
+                </div>
+                <h3>Submission Sent!</h3>
+                <p>Thank you for your selections. We have received them and will be in touch with you shortly.</p>
+                <p class="auto-close-note">This window will close automatically.</p>
+            </div>
+        </div>
+    </div>
+    
+    <button id="sticky-submit-btn" class="sticky-submit-btn">
+        <span class="icon">✓</span>
+        <span class="text">Submit</span>
+        <span id="selection-count-btn" class="count">0</span>
+    </button>
+    
+    <div id="lightbox-overlay" class="lightbox-overlay">
+        <div id="lightbox-loader" class="loader-large"></div>
+        <button id="lightbox-close" class="lightbox-btn lightbox-close" aria-label="Close">&times;</button>
+        <button id="lightbox-prev" class="lightbox-btn lightbox-prev" aria-label="Previous image">&#10094;</button>
+        <button id="lightbox-next" class="lightbox-btn lightbox-next" aria-label="Next image">&#10095;</button>
+        <div id="lightbox-content-wrapper" class="lightbox-content-wrapper">
+            <span id="lightbox-selection-checkbox" class="lightbox-selection-checkbox"></span>
+            <img id="lightbox-img" src="" alt="Lightbox image preview">
+            <div id="lightbox-caption" class="lightbox-caption"></div>
+            <button id="lightbox-submit-btn" class="submit-btn lightbox-submit">
+                Submit <span id="lightbox-submit-count">0</span> Selections
+            </button>
+        </div>
+    </div>
+
+    <footer>
+        <p>This website was created and managed by Aravinth Ramesh © 2025</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
