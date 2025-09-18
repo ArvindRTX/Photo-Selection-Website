@@ -11,27 +11,32 @@
     <div class="bg-pattern"></div>
     <div class="container">
         <header>
-            <button id="logout-btn" style="display: none;">Logout</button>
+            <a href="/dashboard" id="admin-dashboard-btn" class="header-action-btn">Admin Dashboard</a>
+            <button id="logout-btn" class="logout-btn-styled">Logout</button>
             <div class="header-content">
                 <h1>Signature Photography</h1>
             </div>
             <p id="header-subtitle">Welcome! Please log in to view your private gallery and make your selections.</p>
         </header>
+
         <div id="client-login-view">
-            <h2>Client Login</h2>
-            <div id="login-message-area"></div>
-            <form id="client-login-form">
-                <div class="form-group">
-                    <label for="client-username">Username:</label>
-                    <input type="text" id="client-username" required>
-                </div>
-                <div class="form-group">
-                    <label for="client-password">Password:</label>
-                    <input type="password" id="client-password" required>
-                </div>
-                <button type="submit" class="submit-btn">Login</button>
-            </form>
+            <div class="login-card">
+                <h2>Client Login</h2>
+                <div id="login-message-area"></div>
+                <form id="client-login-form" autocomplete="off">
+                    <div class="form-group">
+                        <label for="client-username">Username:</label>
+                        <input type="text" id="client-username" autocomplete="off" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="client-password">Password:</label>
+                        <input type="password" id="client-password" autocomplete="new-password" required>
+                    </div>
+                    <button type="submit" class="submit-btn">Login</button>
+                </form>
+            </div>
         </div>
+
         <div id="gallery-container" style="display:none;">
             <div id="debug-info" class="debug-info">
                 <h3>Debug Information:</h3>
@@ -48,20 +53,20 @@
             <div id="submission-modal" class="modal-overlay">
                 <div class="submission-section modal-content">
                     <button id="close-modal-btn" class="close-modal-btn" aria-label="Close">&times;</button>
-                    <form id="selection-form">
+                    <form id="selection-form" autocomplete="off">
                         <h2>Your Selections</h2>
                         <p class="selection-counter">You have selected <span id="selection-count-modal">0</span> photos.</p>
                         <div class="form-group">
                             <label for="client-name">Your Name:</label>
-                            <input type="text" id="client-name" name="clientName" required>
+                            <input type="text" id="client-name" name="clientName" autocomplete="off" required>
                         </div>
                         <div class="form-group">
                             <label for="client-email">Your Email:</label>
-                            <input type="email" id="client-email" name="clientEmail" required>
+                            <input type="email" id="client-email" name="clientEmail" autocomplete="off" required>
                         </div>
                         <div class="form-group">
                             <label for="client-phone">Your Phone Number:</label>
-                            <input type="tel" id="client-phone" name="clientPhone" required>
+                            <input type="tel" id="client-phone" name="clientPhone" autocomplete="off" required>
                         </div>
                         <button type="submit" class="submit-btn">Submit Selections</button>
                         <button type="button" id="clear-selection-btn" class="clear-btn">Clear Selection</button>
