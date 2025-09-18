@@ -1,8 +1,8 @@
 {
-  "name": "website-gallery-test",
+  "name": "signature-photography-dashboard",
   "version": "1.0.0",
   "description": "",
-  "main": "script.js",
+  "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
@@ -11,10 +11,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.2",
-    "express": "^5.1.0",
-    "googleapis": "^160.0.0",
-    "twilio": "^5.9.0"
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "googleapis": "^137.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongodb": "^6.7.0",
+    "twilio": "^5.2.0"
   }
 }
