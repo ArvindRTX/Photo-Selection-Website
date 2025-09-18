@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const setClientToken = (token) => localStorage.setItem('clientToken', token);
     const removeClientToken = () => localStorage.removeItem('clientToken');
     const getAuthHeaders = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${getClientToken()}` });
-
+    
     const showLoginView = (message = null) => {
         removeClientToken();
         galleryContainer.style.display = 'none';
@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveSelectionsToLocalStorage() { const selectionsArray = Array.from(selectedPhotos.entries()); localStorage.setItem('photoSelections', JSON.stringify(selectionsArray)); }
     function loadSelectionsFromLocalStorage() { const savedSelections = localStorage.getItem('photoSelections'); if (savedSelections) { try { selectedPhotos = new Map(JSON.parse(savedSelections)); } catch (e) { console.error("Could not parse saved selections", e); } } }
     function logError(error) { console.error('Error:', error); errorLog.textContent += error.toString() + '; '; }
-
+    
     const lazyLoadObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach((entry, index) => {
             if (entry.isIntersecting) {
@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
         isLoading = true;
         if (page === 1) { gallery.innerHTML = ''; allPhotos = []; currentPage = 1; totalPages = 1; }
         loadingSentinel.style.display = 'block';
-
+        
         const pathParts = window.location.pathname.split('/');
         const slug = pathParts.pop() || pathParts.pop();
 
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/my-gallery?slug=${slug}&page=${page}&limit=50`, { headers: getAuthHeaders() });
             if (response.status === 401) return showLoginView("Your session has expired.");
             if (!response.ok) throw new Error(`HTTP ${response.status}: Access denied.`);
-
+            
             const data = await response.json();
             const { photos: photoData, totalPages: newTotalPages, totalPhotos } = data;
             totalPages = newTotalPages; currentPage = page; totalPhotosCount = totalPhotos;
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 photoCount.textContent = `Photos Found: ${totalPhotosCount}`;
             }
             if (photoData.length === 0 && page === 1) {
-                gallery.innerHTML`<div class="error-container"><h3>📁 No Photos Found</h3></div>`;
+                gallery.innerHTML `<div class="error-container"><h3>📁 No Photos Found</h3></div>`;
                 return;
             }
             const fragment = document.createDocumentFragment();
@@ -144,15 +144,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     const sentinelObserver = new IntersectionObserver((entries) => { if (entries[0].isIntersecting && !isLoading) fetchPhotos(currentPage + 1); }, { rootMargin: '0px 0px 400px 0px' });
-    if (loadingSentinel) sentinelObserver.observe(loadingSentinel);
-
+    if(loadingSentinel) sentinelObserver.observe(loadingSentinel);
+    
     function updateSelectionCount() { const count = selectedPhotos.size; selectionCountModal.textContent = count; selectionCountBtn.textContent = count; lightboxSubmitCount.textContent = count; }
     function clearAllSelections() { document.querySelectorAll('.photo-container.selected').forEach(c => c.classList.remove('selected')); selectedPhotos.clear(); saveSelectionsToLocalStorage(); updateSelectionCount(); }
     function toggleSelection(container) { if (!container) return; const photoId = container.dataset.id; const photoName = container.dataset.name; if (selectedPhotos.has(photoId)) { selectedPhotos.delete(photoId); container.classList.remove('selected'); } else { selectedPhotos.set(photoId, { id: photoId, name: photoName }); container.classList.add('selected'); } saveSelectionsToLocalStorage(); updateSelectionCount(); }
     function loadImageInLightbox(index) { if (index < 0 || index >= allPhotos.length) return; currentPhotoIndex = index; const photoContainer = allPhotos[index]; const fullUrl = photoContainer.dataset.fullUrl; const name = photoContainer.dataset.name; lightboxLoader.style.display = 'block'; lightboxContentWrapper.style.visibility = 'hidden'; const tempImg = new Image(); tempImg.onload = () => { lightboxImg.src = fullUrl; lightboxCaption.textContent = name; lightboxSelectCheckbox.classList.toggle('selected', photoContainer.classList.contains('selected')); lightboxLoader.style.display = 'none'; lightboxContentWrapper.style.visibility = 'visible'; }; tempImg.onerror = () => { logError(`Failed to load high-res image: ${name}`); lightboxLoader.style.display = 'none'; lightboxContentWrapper.style.visibility = 'visible'; lightboxImg.src = ''; lightboxCaption.textContent = `Error loading image: ${name}`; }; tempImg.src = fullUrl; }
     function openLightbox(index) { lightboxOverlay.style.display = 'flex'; document.body.style.overflow = 'hidden'; loadImageInLightbox(index); }
     function closeLightbox() { lightboxOverlay.style.display = 'none'; lightboxImg.src = ""; document.body.style.overflow = 'auto'; }
-
+    
     logoutBtn.addEventListener('click', logout);
     clientLoginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -189,8 +189,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const submitBtn = form.querySelector('.submit-btn');
         submitBtn.textContent = 'Submitting...';
         submitBtn.disabled = true;
+
+        const pathParts = window.location.pathname.split('/');
+        const gallerySlug = pathParts.pop() || pathParts.pop();
+
         try {
-            const response = await fetch('/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientName, clientEmail, clientPhone, selectedPhotos: selections }), });
+            const response = await fetch('/submit', { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                    clientName, 
+                    clientEmail, 
+                    clientPhone, 
+                    selectedPhotos: selections,
+                    gallerySlug // ADDED: Send gallery slug to server
+                }), 
+            });
             if (response.ok) {
                 form.style.display = 'none';
                 successMessage.style.display = 'flex';
@@ -209,6 +223,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Initial Page Load ---
-    // Always show the login view first. Do not automatically log in.
     showLoginView();
 });
