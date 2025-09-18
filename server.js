@@ -28,17 +28,12 @@ app.use(express.static(__dirname));
 
 // --- Helper Functions ---
 function extractFolderIdFromUrl(url) {
-    const patterns = [
-        /\/folders\/([a-zA-Z0-9-_]+)/,
-        /id=([a-zA-Z0-9-_]+)/
-    ];
+    const patterns = [ /\/folders\/([a-zA-Z0-9-_]+)/, /id=([a-zA-Z0-9-_]+)/ ];
     for (const pattern of patterns) {
         const match = url.match(pattern);
         if (match) return match[1];
     }
-    if (url && url.length > 20 && !url.includes('/')) {
-        return url;
-    }
+    if (url && url.length > 20 && !url.includes('/')) { return url; }
     return null;
 }
 
@@ -48,8 +43,7 @@ const createSlug = (name) => name.toLowerCase().replace(/\s+/g, '-').replace(/[^
 const checkAdminAuth = (req, res, next) => {
     try {
         const token = req.headers.authorization.split(" ")[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.adminData = decoded;
+        jwt.verify(token, process.env.JWT_SECRET);
         next();
     } catch (error) {
         return res.status(401).json({ message: 'Admin authentication failed.' });
@@ -59,15 +53,14 @@ const checkAdminAuth = (req, res, next) => {
 const checkClientAuth = (req, res, next) => {
     try {
         const token = req.headers.authorization.split(" ")[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.clientData = decoded;
+        req.clientData = jwt.verify(token, process.env.JWT_SECRET);
         next();
     } catch (error) {
         return res.status(401).json({ message: 'Client authentication failed.' });
     }
 };
 
-// --- API: ADMIN AUTHENTICATION ---
+// --- API: ADMIN ---
 app.post('/api/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -75,40 +68,45 @@ app.post('/api/login', async (req, res) => {
         if (!user || !(await bcrypt.compare(password, user.password))) {
             return res.status(401).json({ message: 'Invalid admin credentials.' });
         }
-        const token = jwt.sign({ username: user.username, userId: user._id }, process.env.JWT_SECRET, { expiresIn: '8h' });
-        res.status(200).json({ message: 'Admin login successful', token });
+        const token = jwt.sign({ username: user.username }, process.env.JWT_SECRET, { expiresIn: '8h' });
+        res.status(200).json({ message: 'Admin login successful', token, username: user.username });
     } catch (error) {
         res.status(500).json({ message: 'An internal server error occurred.' });
     }
 });
 
-// --- API: CLIENT AUTHENTICATION ---
-app.post('/api/client-login', async (req, res) => {
+app.get('/api/contacts', checkAdminAuth, async (req, res) => {
     try {
-        const { username, password, slug } = req.body;
-        if (!username || !password || !slug) {
-            return res.status(400).json({ message: 'Username, password, and gallery slug are required.' });
-        }
-
-        const client = await db.collection('clients').findOne({ username: username.toLowerCase() });
-        if (!client || !(await bcrypt.compare(password, client.password))) {
-            return res.status(401).json({ message: 'Invalid client credentials.' });
-        }
-        
-        const gallery = await db.collection('galleries').findOne({ slug, clientId: client._id });
-        if (!gallery) {
-            return res.status(403).json({ message: 'Access denied. You are not assigned to this gallery.' });
-        }
-
-        const token = jwt.sign({ username: client.username, clientId: client._id }, process.env.JWT_SECRET, { expiresIn: '8h' });
-        res.status(200).json({ message: 'Client login successful', token });
+        const contacts = await db.collection('contacts').find().sort({ lastSubmittedAt: -1 }).toArray();
+        res.status(200).json(contacts);
     } catch (error) {
-        console.error('Client login error:', error);
-        res.status(500).json({ message: 'An internal server error occurred.' });
+        res.status(500).json({ message: 'Failed to fetch contacts.' });
     }
 });
 
-// --- API: ADMIN-FACING CLIENT MANAGEMENT ---
+app.delete('/api/contacts/:id', checkAdminAuth, async (req, res) => {
+    try {
+        const contactId = new ObjectId(req.params.id);
+        const result = await db.collection('contacts').deleteOne({ _id: contactId });
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ message: 'Contact not found.' });
+        }
+        res.status(200).json({ message: 'Contact deleted successfully.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to delete contact.' });
+    }
+});
+
+
+app.get('/api/submissions', checkAdminAuth, async (req, res) => {
+    try {
+        const submissions = await db.collection('submissions').find().toArray();
+        res.status(200).json(submissions);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch submissions.' });
+    }
+});
+
 app.get('/api/clients', checkAdminAuth, async (req, res) => {
     const clients = await db.collection('clients').find({}, { projection: { password: 0 } }).sort({ name: 1 }).toArray();
     res.status(200).json(clients);
@@ -116,16 +114,15 @@ app.get('/api/clients', checkAdminAuth, async (req, res) => {
 
 app.post('/api/clients', checkAdminAuth, async (req, res) => {
     try {
-        const { name, email, username, password } = req.body;
+        const { name, username, password } = req.body;
         if (!name || !username || !password) {
             return res.status(400).json({ message: 'Name, username, and password are required.' });
         }
-        const existingClient = await db.collection('clients').findOne({ username: username.toLowerCase() });
-        if (existingClient) {
-            return res.status(409).json({ message: 'A client with this username already exists.' });
+        if (await db.collection('clients').findOne({ username: username.toLowerCase() })) {
+            return res.status(409).json({ message: 'This username is already taken.' });
         }
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newClient = { name, email, username: username.toLowerCase(), password: hashedPassword, createdAt: new Date() };
+        const newClient = { name, username: username.toLowerCase(), password: hashedPassword, galleryIds: [], createdAt: new Date() };
         await db.collection('clients').insertOne(newClient);
         res.status(201).json({ message: 'Client created successfully.' });
     } catch (error) {
@@ -133,19 +130,52 @@ app.post('/api/clients', checkAdminAuth, async (req, res) => {
     }
 });
 
+app.put('/api/clients/:id', checkAdminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, username, password } = req.body;
+        if (!name || !username) {
+            return res.status(400).json({ message: 'Name and username are required.' });
+        }
+        const updateData = { name, username: username.toLowerCase() };
+        const existingClient = await db.collection('clients').findOne({ username: username.toLowerCase(), _id: { $ne: new ObjectId(id) } });
+        if (existingClient) {
+            return res.status(409).json({ message: 'This username is already taken.' });
+        }
+        if (password) {
+            updateData.password = await bcrypt.hash(password, 10);
+        }
+        await db.collection('clients').updateOne({ _id: new ObjectId(id) }, { $set: updateData });
+        res.status(200).json({ message: 'Client updated successfully.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to update client.' });
+    }
+});
+
+app.put('/api/clients/:id/galleries', checkAdminAuth, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { galleryIds } = req.body; // Expects an array of gallery ID strings
+        const galleryObjectIds = galleryIds.map(gid => new ObjectId(gid));
+        await db.collection('clients').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: { galleryIds: galleryObjectIds } }
+        );
+        res.status(200).json({ message: 'Client galleries updated successfully.' });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to update client galleries.' });
+    }
+});
+
 app.delete('/api/clients/:id', checkAdminAuth, async (req, res) => {
     try {
-        const clientId = new ObjectId(req.params.id);
-        await db.collection('galleries').updateMany({ clientId }, { $unset: { clientId: "" } });
-        const result = await db.collection('clients').deleteOne({ _id: clientId });
-        if (result.deletedCount === 0) return res.status(404).json({ message: 'Client not found.' });
+        await db.collection('clients').deleteOne({ _id: new ObjectId(req.params.id) });
         res.status(200).json({ message: 'Client deleted successfully.' });
     } catch (error) {
         res.status(500).json({ message: 'Failed to delete client.' });
     }
 });
 
-// --- API: ADMIN-FACING GALLERY MANAGEMENT ---
 app.get('/api/galleries', checkAdminAuth, async (req, res) => {
     const galleries = await db.collection('galleries').find().sort({ createdAt: -1 }).toArray();
     res.status(200).json(galleries);
@@ -163,10 +193,14 @@ app.post('/api/galleries', checkAdminAuth, async (req, res) => {
             return res.status(409).json({ message: 'A gallery with this name already exists.' });
         }
         const newGallery = { name, folderId, slug, createdAt: new Date() };
+        const result = await db.collection('galleries').insertOne(newGallery);
+        
         if (clientId) {
-            newGallery.clientId = new ObjectId(clientId);
+            await db.collection('clients').updateOne(
+                { _id: new ObjectId(clientId) },
+                { $push: { galleryIds: result.insertedId } }
+            );
         }
-        await db.collection('galleries').insertOne(newGallery);
         res.status(201).json({ message: 'Gallery created successfully' });
     } catch (error) {
         res.status(500).json({ message: 'Failed to create gallery.' });
@@ -175,100 +209,121 @@ app.post('/api/galleries', checkAdminAuth, async (req, res) => {
 
 app.delete('/api/galleries/:id', checkAdminAuth, async (req, res) => {
     try {
-        const result = await db.collection('galleries').deleteOne({ _id: new ObjectId(req.params.id) });
-        if (result.deletedCount === 0) return res.status(404).json({ message: 'Gallery not found.' });
+        const galleryId = new ObjectId(req.params.id);
+        await db.collection('clients').updateMany({}, { $pull: { galleryIds: galleryId } });
+        await db.collection('galleries').deleteOne({ _id: galleryId });
         res.status(200).json({ message: 'Gallery deleted successfully.' });
     } catch (error) {
         res.status(500).json({ message: 'Failed to delete gallery.' });
     }
 });
 
-// --- API: CLIENT-FACING PHOTO FETCHING (with Pagination) ---
+// --- API: CLIENT ---
+app.post('/api/client-login', async (req, res) => {
+    try {
+        const { username, password, slug } = req.body;
+        const clientUser = await db.collection('clients').findOne({ username: username.toLowerCase() });
+        if (!clientUser || !(await bcrypt.compare(password, clientUser.password))) {
+            return res.status(401).json({ message: 'Invalid client credentials.' });
+        }
+        const gallery = await db.collection('galleries').findOne({ slug });
+        if (!gallery || !clientUser.galleryIds.some(id => id.equals(gallery._id))) {
+            return res.status(403).json({ message: 'Access denied. You are not assigned to this gallery.' });
+        }
+        const token = jwt.sign({ clientId: clientUser._id }, process.env.JWT_SECRET, { expiresIn: '8h' });
+        res.status(200).json({ message: 'Client login successful', token });
+    } catch (error) {
+        res.status(500).json({ message: 'An internal server error occurred.' });
+    }
+});
+
 app.get('/api/my-gallery', checkClientAuth, async (req, res) => {
     try {
-        const gallery = await db.collection('galleries').findOne({ clientId: new ObjectId(req.clientData.clientId) });
-        if (!gallery) {
-            return res.status(404).json({ error: 'No gallery is assigned to you.' });
+        const { slug } = req.query;
+        if (!slug) return res.status(400).json({ error: 'Gallery slug is required.' });
+
+        const clientUser = await db.collection('clients').findOne({ _id: new ObjectId(req.clientData.clientId) });
+        const gallery = await db.collection('galleries').findOne({ slug });
+
+        if (!gallery || !clientUser.galleryIds.some(id => id.equals(gallery._id))) {
+            return res.status(404).json({ error: 'Gallery not found or access denied.' });
         }
         
         const response = await drive.files.list({
             q: `'${gallery.folderId}' in parents and mimeType contains 'image/' and trashed=false`,
-            fields: 'files(id, name)',
-            pageSize: 1000,
-            orderBy: 'name'
+            fields: 'files(id, name)', pageSize: 1000, orderBy: 'name'
         });
 
         if (!response.data.files) return res.json({ photos: [], totalPages: 0 });
-
         const allFiles = response.data.files;
-        
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;
         const startIndex = (page - 1) * limit;
         const endIndex = page * limit;
         const totalPages = Math.ceil(allFiles.length / limit);
-
         const paginatedFiles = allFiles.slice(startIndex, endIndex);
-
         const photoData = paginatedFiles.map(file => ({
             id: file.id, name: file.name, url: `https://drive.google.com/thumbnail?id=${file.id}&sz=w400`
         }));
-        
         res.json({ photos: photoData, totalPages, totalPhotos: allFiles.length });
-
     } catch (error) {
-        console.error(`Error fetching photos for client "${req.clientData.clientId}":`, error.message);
         res.status(500).json({ error: 'Failed to fetch photos.' });
     }
 });
 
-// --- API: Secure Image Proxy Route ---
 app.get('/api/image/:fileId', async (req, res) => {
     try {
         const { fileId } = req.params;
-        if (!fileId) {
-            return res.status(400).send('File ID is required.');
-        }
-
-        const fileStream = await drive.files.get(
-            { fileId: fileId, alt: 'media' },
-            { responseType: 'stream' }
-        );
-
-        fileStream.data
-            .on('end', () => res.end())
-            .on('error', () => res.status(404).send('Image not found.'))
-            .pipe(res);
-
-    } catch (error) {
-        console.error('Error proxying image:', error.message);
-        res.status(500).send('Error fetching image.');
-    }
+        const fileStream = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'stream' });
+        fileStream.data.pipe(res);
+    } catch (error) { res.status(500).send('Error fetching image.'); }
 });
 
-// --- API: Photo Selection Submission ---
 app.post('/submit', async (req, res) => {
     try {
         const { clientName, clientEmail, clientPhone, selectedPhotos } = req.body;
-        if (!clientName || !clientEmail || !clientPhone || !selectedPhotos || selectedPhotos.length === 0) {
-            return res.status(400).json({ error: 'All fields are required.' });
-        }
-        const submission = { clientName, clientEmail, clientPhone, selectedPhotos, submittedAt: new Date() };
-        await db.collection('submissions').insertOne(submission);
+        await db.collection('submissions').insertOne({ clientName, clientEmail, clientPhone, selectedPhotos, submittedAt: new Date() });
+        
+        await db.collection('contacts').updateOne(
+            { email: clientEmail.toLowerCase() },
+            { 
+                $set: { name: clientName, phone: clientPhone, email: clientEmail.toLowerCase() },
+                $setOnInsert: { createdAt: new Date() },
+                $currentDate: { lastSubmittedAt: true }
+            },
+            { upsert: true }
+        );
 
-        const messageBody = `New photo selection from ${clientName}. ${selectedPhotos.length} photos selected. Email: ${clientEmail}`;
+        // --- UPDATED WHATSAPP MESSAGE LOGIC ---
+        const fileNames = selectedPhotos.map(photo => `- ${photo.name}`).join('\n');
+const fileNamesBlock =
+  Array.isArray(fileNames) ? fileNames.join('\n') :
+  String(fileNames).replace(/,\s*/g, '\n');
+
+const messageBody = `📸 *New Photo Selection Received!* ✨
+
+👤 *Client Name:* ${clientName}
+📞 *Phone Number:* ${clientPhone}
+
+🖼️ *Total Photos Selected:* ${selectedPhotos?.length ?? '—'}
+
+📂 *Selected File Names:*
+${fileNamesBlock}
+
+✅ End of Message.`;
+
         await twilioClient.messages.create({
             body: messageBody,
             from: process.env.TWILIO_WHATSAPP_NUMBER,
             to: process.env.YOUR_WHATSAPP_NUMBER
         });
-
         res.status(200).json({ message: 'Selections submitted successfully!' });
     } catch (error) {
-        console.error('Error processing submission:', error);
+        console.error("Submission Error:", error);
         res.status(500).json({ error: 'Failed to submit selections.' });
     }
 });
+
 
 // --- Public Page Routes ---
 app.get('/gallery/:slug', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
@@ -281,16 +336,10 @@ async function startServer() {
         await client.connect();
         console.log('✅ Connected successfully to MongoDB');
         db = client.db('photo-gallery-db');
-        await db.collection('galleries').createIndex({ slug: 1 }, { unique: true });
-        await db.collection('clients').createIndex({ username: 1 }, { unique: true });
-        
-        app.listen(port, () => {
-            console.log(`🚀 Server is running at http://localhost:${port}`);
-        });
+        app.listen(port, () => console.log(`🚀 Server is running at http://localhost:${port}`));
     } catch (err) {
         console.error('❌ Failed to start server:', err);
         process.exit(1);
     }
 }
-
 startServer();

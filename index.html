@@ -6,67 +6,6 @@
     <meta name="referrer" content="no-referrer">
     <title>Signature Photography - Photo Selection</title>
     <link rel="stylesheet" href="/style.css">
-    <style>
-        #client-login-view {
-            max-width: 450px;
-            margin: 80px auto;
-            padding: 40px;
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-radius: 20px;
-            border: 1px solid rgba(0, 0, 0, 0.08);
-            box-shadow: 0 15px 35px rgba(90, 90, 90, 0.1);
-            text-align: center;
-        }
-        #client-login-view h2 {
-            font-family: 'Playfair Display', serif;
-            font-size: 2.5rem;
-            margin-bottom: 25px;
-            color: #1a1a1a;
-        }
-        #login-message-area {
-            color: #721c24;
-            background-color: #f8d7da;
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-weight: 500;
-            display: none;
-        }
-        #logout-btn {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: #c0a062;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 15px;
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        #logout-btn:hover { background: #d4b375; transform: translateY(-2px); }
-        header { position: relative; }
-        .retry-btn-small {
-            margin-top: 10px;
-            padding: 5px 10px;
-            background: #c0a062;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            font-weight: 500;
-            transition: all 0.2s ease;
-        }
-        .retry-btn-small:hover {
-            background: #d4b375;
-            transform: translateY(-1px);
-        }
-    </style>
 </head>
 <body>
     <div class="bg-pattern"></div>
@@ -74,7 +13,7 @@
         <header>
             <button id="logout-btn" style="display: none;">Logout</button>
             <div class="header-content">
-                <h1>Signature Photography - Photo Selection</h1>
+                <h1>Signature Photography</h1>
             </div>
             <p id="header-subtitle">Welcome! Please log in to view your private gallery and make your selections.</p>
         </header>
@@ -127,7 +66,7 @@
                         <button type="submit" class="submit-btn">Submit Selections</button>
                         <button type="button" id="clear-selection-btn" class="clear-btn">Clear Selection</button>
                     </form>
-                    <div id="success-message" style="display:none;">
+                    <div id="success-message">
                         <div class="success-icon-wrapper">
                             <svg class="success-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
                                 <circle class="success-icon-circle" cx="26" cy="26" r="25" fill="none"/>

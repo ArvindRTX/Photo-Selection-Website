@@ -31,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
     const loadingSentinel = document.getElementById('loading-sentinel');
 
-    // --- STATE VARIABLES ---
     let selectedPhotos = new Map();
     let allPhotos = [];
     let currentPhotoIndex = 0;
@@ -40,12 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let isLoading = false;
     let totalPhotosCount = 0;
 
-    // --- AUTH & VIEW MANAGEMENT ---
     const getClientToken = () => localStorage.getItem('clientToken');
     const setClientToken = (token) => localStorage.setItem('clientToken', token);
     const removeClientToken = () => localStorage.removeItem('clientToken');
     const getAuthHeaders = () => ({ 'Content-Type': 'application/json', 'Authorization': `Bearer ${getClientToken()}` });
-
     const showLoginView = (message = null) => {
         removeClientToken();
         galleryContainer.style.display = 'none';
@@ -66,8 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchPhotos(1);
     };
     function logout() { showLoginView("You have been successfully logged out."); }
-    
-    // --- LOCAL STORAGE FUNCTIONS ---
     function saveSelectionsToLocalStorage() {
         const selectionsArray = Array.from(selectedPhotos.entries());
         localStorage.setItem('photoSelections', JSON.stringify(selectionsArray));
@@ -76,18 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedSelections = localStorage.getItem('photoSelections');
         if (savedSelections) {
             try {
-                const selectionsArray = JSON.parse(savedSelections);
-                selectedPhotos = new Map(selectionsArray);
-            } catch (e) {
-                console.error("Could not parse saved selections", e);
-                localStorage.removeItem('photoSelections');
-            }
+                selectedPhotos = new Map(JSON.parse(savedSelections));
+            } catch (e) { console.error("Could not parse saved selections", e); }
         }
     }
-
     function logError(error) { console.error('Error:', error); errorLog.textContent += error.toString() + '; '; }
-    
-    // --- LAZY LOADING with Intersection Observer ---
     const lazyLoadObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach((entry, index) => {
             if (entry.isIntersecting) {
@@ -111,10 +99,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             img.style.display = 'none';
                             const errorContainer = document.createElement('div');
                             errorContainer.className = 'error-message';
-                            errorContainer.innerHTML = `<strong>Image Load Failed</strong>`;
+                            errorContainer.innerHTML = `<strong>Image Load Failed</strong><br><code>${img.alt}</code>`;
                             const retryBtn = document.createElement('button');
                             retryBtn.textContent = 'Retry';
-                            retryBtn.className = 'retry-btn-small';
+                            retryBtn.className = 'retry-btn'; // Matching new CSS
                             retryBtn.onclick = loadImage;
                             errorContainer.appendChild(retryBtn);
                             container.appendChild(errorContainer);
@@ -123,33 +111,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     };
                     loadImage();
                     observer.unobserve(img);
-                }, index * 100); // Stagger load by 100ms per image
+                }, index * 100);
             }
         });
     }, { rootMargin: '0px 0px 200px 0px' });
 
-    // --- DATA FETCHING ---
     async function fetchPhotos(page) {
         if (isLoading || (page > totalPages && page > 1)) return;
         isLoading = true;
-        if (page === 1) {
-            gallery.innerHTML = '';
-            allPhotos = [];
-            currentPage = 1;
-            totalPages = 1;
-        }
+        if (page === 1) { gallery.innerHTML = ''; allPhotos = []; currentPage = 1; totalPages = 1; }
         loadingSentinel.style.display = 'block';
+        
+        const pathParts = window.location.pathname.split('/');
+        const slug = pathParts.pop() || pathParts.pop();
+
         try {
             serverStatus.textContent = `Server Status: Fetching page ${page}...`;
-            const response = await fetch(`/api/my-gallery?page=${page}&limit=50`, { headers: getAuthHeaders() });
+            const response = await fetch(`/api/my-gallery?slug=${slug}&page=${page}&limit=50`, { headers: getAuthHeaders() });
             if (response.status === 401) return showLoginView("Your session has expired.");
             if (!response.ok) throw new Error(`HTTP ${response.status}: Access denied.`);
             
             const data = await response.json();
             const { photos: photoData, totalPages: newTotalPages, totalPhotos } = data;
-            totalPages = newTotalPages;
-            currentPage = page;
-            totalPhotosCount = totalPhotos;
+            totalPages = newTotalPages; currentPage = page; totalPhotosCount = totalPhotos;
 
             if (page === 1) {
                 serverStatus.textContent = 'Server Status: ✅ Connected';
@@ -178,23 +162,14 @@ document.addEventListener('DOMContentLoaded', () => {
             serverStatus.textContent = `Server Status: ❌ Error`;
         } finally {
             isLoading = false;
-            if (currentPage >= totalPages) {
-                loadingSentinel.style.display = 'none';
-            } else {
-                loadingSentinel.style.display = 'block';
-            }
+            loadingSentinel.style.display = (currentPage >= totalPages) ? 'none' : 'block';
         }
     }
-
-    // --- INFINITE SCROLL ---
     const sentinelObserver = new IntersectionObserver((entries) => {
-        if (entries[0].isIntersecting && !isLoading) {
-            fetchPhotos(currentPage + 1);
-        }
+        if (entries[0].isIntersecting && !isLoading) fetchPhotos(currentPage + 1);
     }, { rootMargin: '0px 0px 400px 0px' });
     if(loadingSentinel) sentinelObserver.observe(loadingSentinel);
     
-    // --- SELECTION LOGIC ---
     function updateSelectionCount() {
         const count = selectedPhotos.size;
         selectionCountModal.textContent = count;
@@ -221,8 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
         saveSelectionsToLocalStorage();
         updateSelectionCount();
     }
-
-    // --- LIGHTBOX LOGIC ---
     function loadImageInLightbox(index) {
         if (index < 0 || index >= allPhotos.length) return;
         currentPhotoIndex = index;
@@ -260,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = 'auto';
     }
     
-    // --- EVENT LISTENERS ---
     logoutBtn.addEventListener('click', logout);
     clientLoginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -276,17 +248,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({ username, password, slug })
             });
             const data = await response.json();
-            if (data.token) {
-                setClientToken(data.token);
-                showGalleryView();
-            } else {
-                showLoginView(data.message || "Login failed.");
-            }
-        } catch (error) {
-            showLoginView("An error occurred. Please try again.");
-        }
+            if (data.token) { setClientToken(data.token); showGalleryView(); }
+            else { showLoginView(data.message || "Login failed."); }
+        } catch (error) { showLoginView("An error occurred. Please try again."); }
     });
-
     gallery.addEventListener('click', (event) => {
         const target = event.target;
         const container = target.closest('.photo-container');
@@ -298,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const index = allPhotos.indexOf(container);
         if (index > -1) openLightbox(index);
     });
-
     clearBtn.addEventListener('click', () => { if (window.confirm("Are you sure you want to clear all selected photos?")) { clearAllSelections(); } });
     stickySubmitBtn.addEventListener('click', () => { if (selectedPhotos.size === 0) { alert('Please select at least one photo.'); return; } submissionModal.style.display = 'flex'; });
     closeModalBtn.addEventListener('click', () => { submissionModal.style.display = 'none'; });
@@ -307,13 +271,11 @@ document.addEventListener('DOMContentLoaded', () => {
     lightboxNext.addEventListener('click', () => loadImageInLightbox((currentPhotoIndex + 1) % allPhotos.length));
     lightboxPrev.addEventListener('click', () => loadImageInLightbox((currentPhotoIndex - 1 + allPhotos.length) % allPhotos.length));
     lightboxOverlay.addEventListener('click', (event) => { if (event.target === lightboxOverlay) closeLightbox(); });
-
     lightboxSelectCheckbox.addEventListener('click', () => {
         const container = allPhotos[currentPhotoIndex];
         toggleSelection(container);
         lightboxSelectCheckbox.classList.toggle('selected');
     });
-
     lightboxSubmitBtn.addEventListener('click', () => { if (selectedPhotos.size === 0) { alert('Please select at least one photo.'); return; } closeLightbox(); submissionModal.style.display = 'flex'; });
     document.addEventListener('keydown', (event) => { if (lightboxOverlay.style.display === 'flex') { if (event.key === 'Escape') closeLightbox(); if (event.key === 'ArrowRight') lightboxNext.click(); if (event.key === 'ArrowLeft') lightboxPrev.click(); } });
     form.addEventListener('submit', async (event) => {
@@ -357,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- INITIAL LOAD ---
     if (getClientToken()) {
         showGalleryView();
     } else {
